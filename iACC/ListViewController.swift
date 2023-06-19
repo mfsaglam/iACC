@@ -157,22 +157,27 @@ class ListViewController: UITableViewController {
 	override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 		let item = items[indexPath.row]
 		let cell = tableView.dequeueReusableCell(withIdentifier: "ItemCell") ?? UITableViewCell(style: .subtitle, reuseIdentifier: "ItemCell")
-        let vm = ItemViewModel(item, longDateStyle: longDateStyle)
+        let vm = ItemViewModel(item, longDateStyle: longDateStyle) {
+            
+        }
 		cell.configure(vm)
 		return cell
 	}
 	
 	override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
 		let item = items[indexPath.row]
-		if let friend = item as? Friend {
-			select(friend: friend)
-		} else if let card = item as? Card {
-			select(card: card)
-		} else if let transfer = item as? Transfer {
-			select(transfer: transfer)
-		} else {
-			fatalError("unknown item: \(item)")
-		}
+        let vm = ItemViewModel(item, longDateStyle: longDateStyle) { [weak self] in
+            if let friend = item as? Friend {
+                self?.select(friend: friend)
+            } else if let card = item as? Card {
+                self?.select(card: card)
+            } else if let transfer = item as? Transfer {
+                self?.select(transfer: transfer)
+            } else {
+                fatalError("unknown item: \(item)")
+            }
+        }
+        vm.select()
 	}
 	
 	@objc func addCard() {
@@ -195,35 +200,38 @@ class ListViewController: UITableViewController {
 struct ItemViewModel {
     let title: String
     let subtitle: String
+    let select: () -> Void
     
-    init(_ item: Any, longDateStyle: Bool) {
+    init(_ item: Any, longDateStyle: Bool, selection: @escaping () -> Void) {
         if let friend = item as? Friend {
-            self.init(friend)
+            self.init(friend, selection: selection)
         } else if let card = item as? Card {
-            self.init(card)
+            self.init(card, selection: selection)
         } else if let transfer = item as? Transfer {
-            self.init(transfer, longDateStyle: longDateStyle)
+            self.init(transfer, longDateStyle: longDateStyle, selection: selection)
         } else {
             fatalError("unknown item: \(item)")
         }
     }
 }
 extension ItemViewModel {
-    init(_ friend: Friend) {
+    init(_ friend: Friend, selection: @escaping () -> Void) {
         title = friend.name
         subtitle = friend.phone
+        select = selection
     }
 }
 
 extension ItemViewModel {
-    init(_ card: Card) {
+    init(_ card: Card, selection: @escaping () -> Void) {
         title = card.number
         subtitle = card.holder
+        select = selection
     }
 }
 
 extension ItemViewModel {
-    init(_ transfer: Transfer, longDateStyle: Bool) {
+    init(_ transfer: Transfer, longDateStyle: Bool, selection: @escaping () -> Void) {
         let numberFormatter = Formatters.number
         numberFormatter.numberStyle = .currency
         numberFormatter.currencyCode = transfer.currencyCode
@@ -241,6 +249,7 @@ extension ItemViewModel {
             dateFormatter.timeStyle = .short
             subtitle = "Received from: \(transfer.sender) on \(dateFormatter.string(from: transfer.date))"
         }
+        select = selection
     }
 }
 
