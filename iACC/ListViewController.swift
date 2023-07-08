@@ -4,8 +4,13 @@
 
 import UIKit
 
+protocol ItemsService {
+    func loadItems(completion: @escaping (Result<[ItemViewModel], Error>) -> Void)
+}
+
 class ListViewController: UITableViewController {
 	var items = [ItemViewModel]()
+    var service: ItemsService?
 	
 	var retryCount = 0
 	var maxRetryCount = 0
@@ -24,15 +29,7 @@ class ListViewController: UITableViewController {
 		refreshControl = UIRefreshControl()
 		refreshControl?.addTarget(self, action: #selector(refresh), for: .valueChanged)
 		
-		if fromFriendsScreen {
-			shouldRetry = true
-			maxRetryCount = 2
-			
-			title = "Friends"
-			
-			navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(addFriend))
-			
-		} else if fromCardsScreen {
+		if fromCardsScreen {
 			shouldRetry = false
 			
 			title = "Cards"
@@ -68,20 +65,8 @@ class ListViewController: UITableViewController {
 	@objc private func refresh() {
 		refreshControl?.beginRefreshing()
 		if fromFriendsScreen {
-			FriendsAPI.shared.loadFriends { [weak self] result in
-				DispatchQueue.mainAsyncIfNeeded {
-                    self?.handleAPIResult(result.map { items in
-                        if User.shared?.isPremium == true {
-                            (UIApplication.shared.connectedScenes.first?.delegate as! SceneDelegate).cache.save(items)
-                        }
-                        return items.map { friend in
-                            ItemViewModel(friend) {
-                                self?.select(friend: friend)
-                            }
-                        }
-                    })
-				}
-			}
+            
+            service?.loadItems(completion: handleAPIResult)
 		} else if fromCardsScreen {
 			CardAPI.shared.loadCards { [weak self] result in
 				DispatchQueue.mainAsyncIfNeeded {
